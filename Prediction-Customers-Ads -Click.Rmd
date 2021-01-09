@@ -1,0 +1,759 @@
+
+# Research Questions
+
+A Kenyan entrepreneur has created an online cryptography course and would want to advertise it on her blog. She currently targets audiences originating from various countries. In the past, she ran ads to advertise a related course on the same blog and collected data in the process. She would now like to employ your services as a Data Science Consultant to help her identify which individuals are most likely to click on her ads.
+
+
+# Problem Statement
+
+Create a prediction model that more accurately predicts whether a user will click an Ad or not.
+
+
+# Metrics of success
+
+
+The accuracy score of the model will be used to measure the predictive power of the model.
+
+
+### Experimental Design  
+
+
+1.Loading Data
+
+2.Checking the Data
+
+3.Data Cleaning
+
+4.Exploratory Analysis
+
+5.Implementing the Solution
+
+6.Challenging the solution
+
+7.Follow up questions
+
+## Instaling Libaries 
+
+```{r}
+## Instaling the relvant libaries
+install.packages("remotes")
+install.packages("pacman")
+install.packages("gmodels")
+install.packages("outliers")
+install.packages("tidyverse")
+install.packages("xgboost")
+install.packages("corrplot")
+install.packages("ggplot2")
+install.packages("ggcorrplot")
+install.packages("caret")
+install.packages("class")
+install.packages("lattice")
+```
+
+
+## Importing Libaries
+```{r}
+# Importing the relvant libaries
+
+library(remotes)
+library(pacman)
+library(gmodels)
+library(outliers)
+library(tidyverse)
+library(xgboost)
+library(corrplot)
+library(ggplot2)
+library(caret)
+library(class)
+library(ggcorrplot)
+
+library("data.table")
+
+
+theme_set(theme_classic())
+options(warn = -1)
+```
+
+
+## Loading Data
+
+```{r}
+### Loading dataset
+df <- fread('http://bit.ly/IPAdvertisingData')
+```
+
+
+
+## Checking the Data
+
+```{r}
+### preview of first six
+head(df)
+```
+
+
+
+```{r}
+### Getting the column names
+attributes(df)$names
+```
+
+
+
+```{r}
+### Getting the class ofthe data
+attributes(df)$class
+```
+
+
+
+
+```{r}
+### Taking a glimpse on some of the data in the dataframe
+glimpse(df)
+```
+
+
+
+```{r}
+### Checking some statistical summaries of the data
+summary(df)
+```
+
+
+
+```{r}
+### Checking for the dimensions of the dataframe
+dim(df)
+```
+Our data contains ten columns and 1000 rows
+
+
+
+
+```{r}
+### Checking the number of unique columns
+cat.columns <- c("Ad Topic Line","City","Country","Timestamp")
+no <- function(x) {  
+    nlevels(x)
+  }
+  
+number <- sapply(select(df, cat.columns), no)
+number
+
+```
+From the specified columns we observe that not column has unique values
+
+
+
+```{r}
+### Summary of numeric columns
+
+
+df %>%
+  select_if(is.numeric) %>%
+  map(~summary(.))
+```
+For each numeric column we have Minmum, Quatile, Median, Mean 3rd Quartile and Maximum
+
+# Data Cleaning
+
+
+
+```{r}
+### Changing the names of the columns to lower
+
+colnames(df) <- tolower(str_replace_all(colnames(df), c(' ' = '_')))
+colnames(df)
+```
+
+
+
+```{r}
+### The male column should be renamed to gender
+
+colnames(df)[colnames(df) == 'male'] = 'gender'
+```
+
+
+
+```{r}
+### Changing time stamp to date time series
+### specify format m/d/Y H:M:S
+### convert the characters of date and time to  date time series
+df$timestamp <- as.POSIXct(df$timestamp, format="%Y-%m-%d %H:%M:%S",tz=Sys.timezone())
+```
+
+
+
+```{r}
+### Checking for Missing values
+
+colSums(is.na(df))
+
+```
+No missing values in the dataset
+
+
+
+```{r}
+### Checking for duplicates
+
+anyDuplicated(df)
+```
+We observe zero duplicated values meaning no duplicates
+
+
+
+```{r}
+###Frequency tables clicked_on_ad
+
+table(df$clicked_on_ad)
+```
+From clicked on ad colum we observe the number of clicked and not clicked are equal distributed
+
+
+
+```{r}
+### remaning the target column
+df$clicked_on_ad <- ifelse(df$clicked_on_ad == 1,"Yes","No")
+table(df$clicked_on_ad) 
+```
+
+
+
+
+```{r}
+### Frequency tables gender
+
+table(df$gender)
+```
+From gender 1 represents male and 0 represent female. Females have high number than male.
+
+
+
+
+### Boxplots 
+```{r}
+### Checking Outliers using boxplots on area income
+
+boxplot(df$area_income,main = "Boxplot on area income ")
+```
+
+From the above boxplot we can observe area of income has some outliers
+
+
+
+
+```{r}
+### Checking outliers using boxplots on daily time spent on site
+
+boxplot(df$daily_time_spent_on_site,main = "Boxplot on daily time spent ")
+```
+
+The above shows no outliers on the daily time spent on site.
+
+
+
+
+```{r}
+### Plotting boxplots on  Daily Internet Usage
+
+boxplot(df$daily_internet_usage,main = "Boxplot on Daily Internet Usage")
+```
+
+The above shows no outliers on the daily internet usage
+
+
+
+```{r}
+### Plotting boxplots on Age
+
+boxplot(df$age)
+```
+
+From the above boxplot we can observe age has no outliers
+
+
+```{r}
+### Plotting boxplots on  Daily Internet Usage
+boxplot(df$timestamp,main = "Boxplot on Timestamp")
+```
+ 
+
+
+```{r}
+### cheacking for unique 
+unique_items <- unique(df)
+unique_items
+```
+
+
+
+#  Exploratory Data Analysis
+
+
+## Univariate
+
+### Measures of Central Tendency
+
+### Mean
+```{r}
+### Mean daily_internet_usage
+
+Advatatisment.InternetUsage.mean <- mean(df$daily_internet_usage)
+Advatatisment.InternetUsage.mean
+```
+
+
+```{r}
+### Mean area_income
+
+Advatatisment.area_income.mean <- mean(df$area_income)
+Advatatisment.area_income.mean
+```
+
+
+```{r}
+### Mean of Age 
+
+Advatatisment.Age.mean <- mean(df$age)
+Advatatisment.Age.mean
+```
+
+
+### Median
+```{r}
+### Median daily_internet_usage
+
+daily_internet_usage.median <- median(df$daily_internet_usage)
+daily_internet_usage.median
+```
+
+
+
+```{r}
+### Median area_income median
+
+Advatatisment.area_income.median <- median(df$area_income)
+Advatatisment.area_income.median
+
+```
+
+
+
+```{r}
+### Median Age.median
+
+Advatatisment.Age.median <- median(df$age)
+Advatatisment.Age.median
+
+```
+
+
+
+```{r}
+### Median of Daily_Internet_Usage
+
+Advatatisment_InternetUsage_mean <- mean(df$daily_internet_usage)
+Advatatisment_InternetUsage_mean
+```
+
+
+
+
+### Barplots
+```{r}
+###Plotting barplots of the Genser column
+
+counts <- table(df$gender)
+barplot(counts, main="Gender Distribution",xlab="Target variable",ylab = "Frequency",col="darkblue")
+```
+
+Using visualization to check gender female clicking ad are higher than male 
+
+
+
+```{r}
+### Plotting barplots of the target column
+
+counts <- table(df$clicked_on_ad)
+barplot(counts, main="Target Variable Distribution",xlab="Target variable",ylab = "Frequency",col="purple")
+```
+
+Our target varialbe is evenly distributed.
+
+
+### Density plot
+```{r}
+### Plotting density plot
+
+options(repr.plot.width = 10, repr.plot.height = 7)
+p1 = ggplot(data = df, aes(age)) +
+        geom_density(aes(fill=factor(clicked_on_ad)), alpha = 0.8) +
+        labs(title = 'Clicked on ad density plot', x = 'Age', y = 'Density', fill = 'Clicked on ad') +
+        scale_color_brewer(palette = 'Set1') +
+        theme(plot.title = element_text(size = 12, face = 'bold', color = 'gold'),
+             axis.title.x = element_text(size = 10, face = 'bold', color = 'darkmagenta'),
+             axis.title.y = element_text(size = 10, face = 'bold', color = 'darkmagenta'),
+             axis.text.x = element_text(size = 10, angle = 45),
+             axis.text.y = element_text(size = 10),
+             legend.title = element_text(size = 10, color = 'darkmagenta'),
+             legend.text = element_text(size = 10))
+plot(p1)
+```
+
+Density plot of clicked add and not clicked not clicked having high distribution.
+
+
+
+### Frequency polygon
+```{r}
+### Frequency polygon
+
+options(repr.plot.width = 13, repr.plot.height = 7)
+ggplot(data = df, aes(x = area_income, col = clicked_on_ad))+
+    geom_freqpoly(bins = 50)+
+    labs(title = 'Area income, clicked on ad frequency polygon', x = 'Area income', y = 'clicked on ad', fill = 'Clicked on ad') +
+        scale_color_brewer(palette = 'Set1') +
+        theme(plot.title = element_text(size = 18, face = 'bold', color = 'darkmagenta'),
+             axis.title.x = element_text(size = 15, face = 'bold', color = 'darkmagenta'),
+             axis.title.y = element_text(size = 15, face = 'bold', color = 'darkmagenta'),
+             axis.text.x = element_text(size = 13),
+             axis.text.y = element_text(size = 13),
+             legend.title = element_text(size = 13, color = 'darkmagenta'),
+             legend.text = element_text(size = 12))
+```
+From the above we can observe as the in come increases the number of not clicked tend to increase  
+ 
+             
+### Plotting boxplots
+```{r}
+### Plotting boxplots
+
+options(repr.plot.width = 13, repr.plot.height = 7)
+ggplot(data = df, aes(x = gender, y = daily_internet_usage)) + 
+    geom_boxplot(aes(fill = factor(clicked_on_ad))) + 
+    labs(title = 'Daily internet usage Vs Gender', y = 'Daily internet usage', x = 'Gender', fill = 'Clicked on ad') +
+    scale_color_brewer(palette = 'Set1') +
+    theme(plot.title = element_text(size = 18, face = 'bold', color = 'darkmagenta'),
+             axis.title.x = element_text(size = 15, face = 'bold', color = 'darkmagenta'),
+             axis.title.y = element_text(size = 15, face = 'bold', color = 'darkmagenta'),
+             axis.text.x = element_text(size = 13),
+             axis.text.y = element_text(size = 13),
+             legend.title = element_text(size = 13, color = 'darkmagenta'),
+             legend.text = element_text(size = 12)) 
+```
+ 
+
+### Histograms
+```{r}
+### Plotting a a pair of histograms
+
+options(repr.plot.width = 13, repr.plot.height = 7)
+ggplot(data = df, aes(x = age, fill = clicked_on_ad))+
+    geom_histogram(bins = 35, color = 'gold') + 
+    labs(title = 'Age distribution', x = 'Age', y = 'Frequency', fill = 'Clicked on ad') +
+        scale_color_brewer(palette = 'Set1') +
+        theme(plot.title = element_text(size = 18, face = 'bold', color = 'dodgerblue'),
+             axis.title.x = element_text(size = 15, face = 'bold', color = 'darkmagenta'),
+             axis.title.y = element_text(size = 15, face = 'bold', color = 'dodgerblue'),
+             axis.text.x = element_text(size = 13, angle = 45),
+             axis.text.y = element_text(size = 13),
+             legend.title = element_text(size = 13, color = 'dodgerblue'),
+             legend.text = element_text(size = 12))
+```
+
+As the age increase the number of clicked on ad decreases 
+
+
+### Barchart
+```{r}
+### Barcharts to check for frequencies of features
+
+options(repr.plot.width = 13, repr.plot.height = 7)
+ggplot(data = df, aes(x = gender))+ 
+    geom_bar(aes(fill = clicked_on_ad))+
+    labs(title = 'Gender, clicked on ad Frequency', y = 'Frequency', x = 'Gender', fill = 'Clicked on ad') +
+    scale_color_brewer(palette = 'Set1') +
+    theme(plot.title = element_text(size = 18, face = 'bold', color = 'dodgerblue'),
+             axis.title.x = element_text(size = 15, face = 'bold', color = 'dodgerblue'),
+             axis.title.y = element_text(size = 15, face = 'bold', color = 'dodgerblue'),
+             axis.text.x = element_text(size = 13),
+             axis.text.y = element_text(size = 13),
+             legend.title = element_text(size = 13, color = 'dodgerblue'),
+             legend.text = element_text(size = 12))
+```
+
+Male represented by 1.0 has less click than female
+
+
+
+```{r}
+### remaning the target column
+df$clicked_on_ad <- ifelse(df$clicked_on_ad == "Yes",1,0)
+table(df$clicked_on_ad) 
+```
+
+
+```{r}
+### Insatalling moments
+install.packages("moments")
+```
+
+
+```{r}
+### loading laibrary moments
+library(moments)
+```
+
+
+
+### Correlation 
+```{r}
+### Getting the correlation between the numeric variables
+
+corr_df <- cor(select(df,c("daily_time_spent_on_site","age","area_income","clicked_on_ad")))
+corr_df
+```
+
+Their is an correlation with the selected features.
+
+
+
+### Kurtosis
+```{r}
+### Kurtosis of column age
+kurtosis(corr_df)
+```
+
+
+
+### Skewness
+```{r}
+### Skewness of column age
+skewness(corr_df)
+```
+
+
+```{r}
+qplot(df$age, geom = 'histogram', fill = 'purple', binwidth = 2) + xlab('Age')
+```
+
+From the above we can see that age has a left skewness
+ 
+ 
+ 
+```{r}
+datasim <- data.frame(df$age)
+ggplot(datasim, aes(x = df$age), binwidth = 2) + 
+       geom_histogram(aes(y = ..density..), fill = 'darkblue', alpha = 0.5) + 
+       geom_density(colour = 'gold') + xlab(expression(bold('Simulated Samples'))) + 
+       ylab(expression(bold('Density')))
+```
+
+
+
+### Correlation  plot
+```{r}
+### Showing correlation using correlation plot
+
+corrplot(corr_df, type = "upper", order = "hclust", 
+         tl.col = "black", tl.srt = 45,main="Correlation plots of numerics")
+```
+
+ 
+### Correlation heatmap
+```{r}
+### Plotting heatmap to get more correlation
+
+col<- colorRampPalette(20)
+ggcorrplot(round(corr_df, 2),lab = T)
+```
+
+Visualizing the correlation of our variables, it shows a strong correlation.
+
+
+### Scatter plot 
+```{r}
+### Plotting a scatter plot between variables
+
+plot(df$area_income, df$age, main="Scatterplot Age VS Daily Time spent",
+   xlab="Age ", ylab="Daily Time Spent ", pch=19)
+```
+
+ 
+   
+### Histogram 
+```{r}
+### Plotting a histogram of daily internet Used
+
+qplot(df$daily_internet_usage,main = "Daily Internet Usage Distribution",geom="histogram",
+    xlab = "Daily Internet Usage",ylab = "Frequency Of Internet Usage",binwidth = 5,fill=I("blue"),col=I("red"), alpha=I(.2),)
+```
+ 
+    
+
+```{r}
+### Plotting a histogram of daily Time Spent
+
+qplot(df$daily_time_spent_on_site,main = "Daily Time Spent Distribution",geom="histogram",
+    xlab = "Daily Time Spent",ylab = "Frequency Of TimeSpent",binwidth = 5,fill=I("purple"),col=I("red"), alpha=I(.2),) 
+```
+
+Increase in daily time spent increases as frequency of time spent increase
+
+
+
+# Modelling
+
+
+
+```{r}
+### remaning the target column
+df$clicked_on_ad <- ifelse(df$clicked_on_ad == 1,"Yes","No")
+table(df$clicked_on_ad) 
+```
+
+
+
+```{r}
+### Splitting the data into training and testing sets
+### Setting the seed to 100, for reproducibility
+
+set.seed(100)
+```
+
+
+
+```{r}
+### Selecting only columns that are relevant to modeling
+
+mod_cols = c('daily_time_spent_on_site', 'age', 'area_income', 'daily_internet_usage', 'gender', 'clicked_on_ad')
+df = select(df, mod_cols)
+
+```
+
+
+
+```{r}
+### Splitting the data into 80% training and 20% testing
+train_rows = createDataPartition(df$clicked_on_ad, p=0.8, list=FALSE)
+```
+
+
+
+```{r}
+### Creating the training  dataset
+
+train = df[train_rows,]
+```
+
+
+
+```{r}
+### Creating the test dataset
+
+test = df[-train_rows,]
+```
+
+
+
+```{r}
+### Creating the  X and Y variables
+
+x = train
+y = train$clicked_on_ad
+
+```
+
+
+
+```{r}
+### List of some of the available models
+
+paste(names(getModelInfo())[1:50],collapse = ",  ")
+```
+
+
+### Training the model with Adaboost
+```{r}
+set.seed(100)
+# Training the model using adaboost
+model_adaboost = train(clicked_on_ad ~ ., data=train, method='adaboost', tuneLength=2)
+model_adaboost
+```
+
+
+```{r}
+install.packages('e1071', dependencies=TRUE)
+```
+
+
+### Training the model with earth
+```{r}
+### Training the model
+
+
+model = train(clicked_on_ad ~ ., data = train, method = 'earth')
+
+# Making predictions using the training set
+pred = predict(model)
+```
+
+
+
+```{r}
+
+# Displaying the parameters and their values in the model
+model
+```
+
+
+
+```{r}
+### Previewing the first six predictions
+y_pred = predict(model, test)
+head(y_pred)
+```
+
+
+
+### Training the model with Random Forest
+```{r}
+set.seed(100)
+
+# Train the model using rf
+model_rf = train(clicked_on_ad ~ ., data=train, method='rf', tuneLength=5)
+model_rf
+```
+
+
+
+```{r}
+### This is a list of some of the available models
+
+paste(names(getModelInfo())[50:100],collapse = ",  ")
+```
+
+
+### Training the model with KNN
+```{r}
+set.seed(100)
+
+# Train the model using knn
+model_knn = train(clicked_on_ad ~ ., data=train, method='knn', tuneLength=5)
+model_knn
+```
+
+
+
+
+```{r}
+### Making predictions using the training set
+
+pred1 = predict(model_knn)
+head(pred1)
+```
+
+
